@@ -1,5 +1,12 @@
 name: ghostfolio_dev
 services:
+  ghostfolio:
+    extends:
+      file: docker-compose.yml
+      service: ghostfolio
+    container_name: ghostfolio-dev
+    ports:
+      - ${GHOSTFOLIO_PORT:-3333}:3333
   postgres:
     extends:
       file: docker-compose.yml

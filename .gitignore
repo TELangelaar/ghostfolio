@@ -30,6 +30,8 @@ npm-debug.log
 .cursor/rules/nx-rules.mdc
 .env
 .env.prod
+apps/client/localhost.cert
+apps/client/localhost.pem
 .github/instructions/nx.instructions.md
 .nx/cache
 .nx/migrate-runs
@@ -47,3 +49,6 @@ testem.log
 # System Files
 .DS_Store
 Thumbs.db
+
+# Local backups
+/backups

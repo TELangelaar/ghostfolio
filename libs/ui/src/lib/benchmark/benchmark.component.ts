@@ -1,15 +1,19 @@
 import { ConfirmationDialogType } from '@ghostfolio/common/enums';
 import {
+  DATE_FORMAT,
   getLocale,
   getLowercase,
   resolveMarketCondition
 } from '@ghostfolio/common/helper';
 import {
+  AdminMarketDataDetails,
   AssetProfileIdentifier,
   Benchmark,
+  LineChartItem,
   User
 } from '@ghostfolio/common/interfaces';
 import { NotificationService } from '@ghostfolio/ui/notifications';
+import { DataService } from '@ghostfolio/ui/services';
 
 import {
   CUSTOM_ELEMENTS_SCHEMA,
@@ -21,6 +25,7 @@ import {
   inject,
   input,
   output,
+  signal,
   viewChild
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -31,11 +36,13 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
+import { format } from 'date-fns';
 import { addIcons } from 'ionicons';
 import { ellipsisHorizontal, trashOutline } from 'ionicons/icons';
 import { isNumber, round } from 'lodash';
 import { NgxSkeletonLoaderModule } from 'ngx-skeleton-loader';
 
+import { GfAgLineGraphComponent } from '../ag-line-graph/ag-line-graph.component';
 import { GfEntityLogoComponent } from '../entity-logo/entity-logo.component';
 import { translate } from '../i18n';
 import { GfTrendIndicatorComponent } from '../trend-indicator/trend-indicator.component';
@@ -46,6 +53,7 @@ import { BenchmarkDetailDialogParams } from './benchmark-detail-dialog/interface
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    GfAgLineGraphComponent,
     GfEntityLogoComponent,
     GfTrendIndicatorComponent,
     GfValueComponent,
@@ -67,6 +75,7 @@ export class GfBenchmarkComponent {
   public readonly deviceType = input.required<string>();
   public readonly hasPermissionToDeleteItem = input<boolean>();
   public readonly locale = input(getLocale());
+  public readonly showDetailsInline = input(false);
   public readonly showIcon = input(false);
   public readonly showSymbol = input(true);
   public readonly user = input<User>();
@@ -90,11 +99,18 @@ export class GfBenchmarkComponent {
     ];
   });
   protected isLoading = true;
+  protected readonly isLoadingSelectedItem = signal(false);
   protected readonly isNumber = isNumber;
   protected readonly resolveMarketCondition = resolveMarketCondition;
   protected readonly round = round;
+  protected readonly selectedAssetProfile =
+    signal<AdminMarketDataDetails['assetProfile']>(undefined);
+  protected readonly selectedHistoricalDataItems = signal<LineChartItem[]>([]);
+  protected readonly selectedItem = signal<AssetProfileIdentifier>(undefined);
+  protected readonly selectedValue = signal<number>(undefined);
   protected readonly translate = translate;
 
+  private readonly dataService = inject(DataService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialog = inject(MatDialog);
   private readonly notificationService = inject(NotificationService);
@@ -112,6 +128,19 @@ export class GfBenchmarkComponent {
         this.dataSource.sort = this.sort() ?? null;
 
         this.isLoading = false;
+
+        const selectedItem = this.selectedItem();
+
+        if (
+          selectedItem &&
+          !benchmarks.some(
+            ({ dataSource, symbol }) =>
+              dataSource === selectedItem.dataSource &&
+              symbol === selectedItem.symbol
+          )
+        ) {
+          this.selectedItem.set(undefined);
+        }
       }
     });
 
@@ -133,6 +162,14 @@ export class GfBenchmarkComponent {
     addIcons({ ellipsisHorizontal, trashOutline });
   }
 
+  protected isSelected({ dataSource, symbol }: AssetProfileIdentifier) {
+    const selectedItem = this.selectedItem();
+
+    return (
+      selectedItem?.dataSource === dataSource && selectedItem?.symbol === symbol
+    );
+  }
+
   protected onDeleteItem({ dataSource, symbol }: AssetProfileIdentifier) {
     this.notificationService.confirm({
       confirmFn: () => {
@@ -150,6 +187,41 @@ export class GfBenchmarkComponent {
     this.router.navigate([], {
       queryParams: { dataSource, symbol, benchmarkDetailDialog: true }
     });
+  }
+
+  protected onSelectItem({ dataSource, symbol }: AssetProfileIdentifier) {
+    if (!this.showDetailsInline() || this.deviceType() === 'mobile') {
+      this.onOpenBenchmarkDialog({ dataSource, symbol });
+      return;
+    }
+
+    this.selectedItem.set({ dataSource, symbol });
+    this.isLoadingSelectedItem.set(true);
+
+    this.dataService
+      .fetchAsset({ dataSource, symbol })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ assetProfile, marketData }) => {
+        let latestValue: number;
+
+        const historicalDataItems = marketData.map(
+          ({ date, marketPrice }, index) => {
+            if (marketData.length - 1 === index) {
+              latestValue = marketPrice;
+            }
+
+            return {
+              date: format(date, DATE_FORMAT),
+              value: marketPrice
+            };
+          }
+        );
+
+        this.selectedAssetProfile.set(assetProfile);
+        this.selectedHistoricalDataItems.set(historicalDataItems);
+        this.selectedValue.set(latestValue);
+        this.isLoadingSelectedItem.set(false);
+      });
   }
 
   private openBenchmarkDetailDialog({

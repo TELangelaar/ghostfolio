@@ -1,0 +1,14 @@
+@if (isLoading && showLoader) {
+  <ngx-skeleton-loader
+    animation="pulse"
+    [theme]="{
+      height: '100%',
+      width: '100%'
+    }"
+  />
+}
+<div
+  #chartContainer
+  class="h-100 w-100"
+  [style.display]="isLoading ? 'none' : 'block'"
+></div>

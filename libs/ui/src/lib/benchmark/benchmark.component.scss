@@ -1,3 +1,17 @@
 :host {
   display: block;
+
+  .gf-benchmark-row-selected {
+    background-color: rgba(var(--dark-primary-text), 0.075) !important;
+  }
+
+  gf-ag-line-graph {
+    min-height: 15rem;
+  }
+}
+
+:host-context(.theme-dark) {
+  .gf-benchmark-row-selected {
+    background-color: rgba(var(--light-primary-text), 0.075) !important;
+  }
 }

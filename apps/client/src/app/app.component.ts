@@ -43,6 +43,7 @@ import { GfHoldingDetailDialogComponent } from './components/holding-detail-dial
 import { GfAppQueryParams } from './interfaces/interfaces';
 import { ImpersonationStorageService } from './services/impersonation-storage.service';
 import { UserService } from './services/user/user.service';
+import { AllCommunityModule, ModuleRegistry, } from 'ag-charts-community';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -84,6 +85,7 @@ export class GfAppComponent implements OnInit {
   private readonly userService = inject(UserService);
 
   public constructor() {
+    ModuleRegistry.registerModules([AllCommunityModule]);
     this.initializeTheme();
     this.user = undefined;
 
